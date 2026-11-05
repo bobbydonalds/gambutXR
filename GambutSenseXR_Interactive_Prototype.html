@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GambutSenseXR - Penginderaan Spasio-Temporal Sensor Gambut (UNOSO)</title>
+    <style>
+        :root {
+            --primary: #d97706;
+            --primary-dark: #b45309;
+            --accent: #ef4444;
+            --bg: #1c1917;
+            --panel: #292524;
+            --dark-bg: #0c0a09;
+            --text: #fafaf9;
+            --text-muted: #d6d3d1;
+            --border: #44403c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --water: #0284c7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--dark-bg); color: var(--text); overflow-x: hidden; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: rgba(28, 25, 23, 0.95); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .logo-group { display: flex; align-items: center; gap: 12px; }
+        .badge { background: var(--primary); color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .main-container { display: grid; grid-template-columns: 1fr 390px; flex: 1; height: calc(100vh - 65px); }
+        .viewport-container { position: relative; background: radial-gradient(circle at center, #292524 0%, #0c0a09 100%); display: flex; flex-direction: column; }
+        #canvas3d { width: 100%; flex: 1; display: block; cursor: crosshair; }
+        .mode-selector { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; z-index: 10; background: rgba(41, 37, 36, 0.85); backdrop-filter: blur(8px); padding: 6px; border-radius: 8px; border: 1px solid var(--border); }
+        .mode-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .mode-btn.active { background: var(--primary); color: white; }
+        .sidebar { background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+        .sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+        .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #f59e0b; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .instruction-box { background: rgba(217, 119, 6, 0.15); border-left: 3px solid var(--primary); padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.5; color: #fde68a; margin-bottom: 12px; }
+        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        button.action-btn { background: #44403c; color: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; text-align: center; }
+        button.action-btn:hover { background: #57534e; border-color: #f59e0b; }
+        button.action-btn.primary { background: var(--primary); border-color: #f59e0b; }
+        button.action-btn.primary:hover { background: var(--primary-dark); }
+        button.action-btn.danger { background: #991b1b; border-color: #ef4444; }
+        .genai-panel { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; margin-top: 8px; }
+        .genai-header { display: flex; align-items: center; gap: 6px; color: #f87171; font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+        .genai-content { font-size: 12px; line-height: 1.5; color: #fecaca; min-height: 60px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin-bottom: 8px; white-space: pre-wrap; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+        .metric-card { background: #1c1917; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid var(--border); }
+        .metric-val { font-size: 15px; font-weight: bold; color: #f59e0b; }
+        .metric-lbl { font-size: 10px; color: var(--text-muted); }
+        .status-overlay { position: absolute; bottom: 16px; left: 16px; background: rgba(28, 25, 23, 0.9); padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; max-width: 520px; z-index: 10; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-group">
+            <span class="badge">PROTOTIPE MEDIA INTERAKTIF</span>
+            <h1 style="font-size: 16px; font-weight: 700;">GambutSenseXR: Penginderaan Spasio-Temporal Lahan Gambut</h1>
+            <span style="font-size: 12px; color: var(--text-muted);">| STI Sistem & Teknologi Informasi - Universitas OSO</span>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">
+            Dosen Pengembang: <strong>Agustino Halim, S.T., M.Kom.</strong>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="viewport-container">
+            <div class="mode-selector">
+                <button class="mode-btn active" id="btnModeAR" onclick="setMode('AR')">
+                    <span>📱</span> Mode AR (Marker Penampang Tanah)
+                </button>
+                <button class="mode-btn" id="btnModeVR" onclick="setMode('VR')">
+                    <span>🥽</span> Mode VR (Stasiun Sensor IoT Kubu Raya)
+                </button>
+            </div>
+            
+            <canvas id="canvas3d"></canvas>
+
+            <div class="status-overlay" id="statusBox">
+                <strong>Status Hidrologis Gambut:</strong> Hari ke-1 (Kondisi Basah). Muka Air Tanah (GWL): -15 cm (Batas Aman PP 57/2016: di atas -40 cm). Resiko kebakaran: RENDAH.
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="section-title">
+                    <span>TITIK INTERAKSI 1: KEDALAMAN SENSOR IOT</span>
+                </div>
+                <div class="instruction-box">
+                    Atur kedalaman probe sensor IoT pada penampang tanah gambut (Fibrik, Hemik, Saprik) untuk memantau kadar air pori dan suhu gambut.
+                </div>
+                <div class="control-grid">
+                    <button class="action-btn" onclick="setProbeDepth(20)">Probe 20 cm (Fibrik)</button>
+                    <button class="action-btn primary" onclick="setProbeDepth(50)">Probe 50 cm (Hemik)</button>
+                </div>
+                <div class="control-grid">
+                    <button class="action-btn" onclick="setProbeDepth(100)">Probe 100 cm (Saprik)</button>
+                    <button class="action-btn" onclick="resetSensors()">🔄 Kalibrasi Sensor</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">
+                    <span>TITIK INTERAKSI 2: DERET WAKTU KEMARAU</span>
+                </div>
+                <div class="instruction-box">
+                    Simulasikan berlalunya hari tanpa hujan (kemarau). Amati penurunan tajam Muka Air Tanah (GWL) dan kenaikan suhu gambut bawah permukaan.
+                </div>
+                <div class="control-grid">
+                    <button class="action-btn primary" onclick="stepDroughtDay()">☀️ +5 Hari Kemarau</button>
+                    <button class="action-btn" onclick="triggerRain()">🌧️ Guyur Hujan (Reset)</button>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-val" id="gwlVal">-15 cm</div>
+                        <div class="metric-lbl">Muka Air (GWL)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-val" id="moistVal">78 %</div>
+                        <div class="metric-lbl">Kelembaban Pori</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-val" id="fireRisk">RENDAH</div>
+                        <div class="metric-lbl">Indeks Karhutla</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">
+                    <span>TITIK INTERAKSI 3: ANOMALI CUACA EL NINO (GENAI)</span>
+                    <span style="color: var(--accent);">AI EARLY WARNING</span>
+                </div>
+                <div class="genai-panel">
+                    <div class="genai-header">
+                        <span>✨</span> Extreme Drought & Peatfire Predictor
+                    </div>
+                    <div class="genai-content" id="genaiOutput">Klik tombol untuk meminta GenAI menyimulasikan gelombang panas El Nino ekstrem di Kubu Raya dan menguji ambang batas peringatan dini kebakaran bawah tanah (*smoldering*).</div>
+                    <button class="action-btn primary" style="width: 100%; background: #dc2626;" onclick="generateElNinoStress()">
+                        ⚡ Generate Anomali El Nino (GenAI)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let day = 1;
+        let gwl = -15; // in cm
+        let moisture = 78; // %
+        let temp = 28; // Celsius
+        let probeDepth = 50; // cm
+        let mode = 'AR';
+        let historyGWL = [-15, -16, -15, -17, -18];
+
+        const canvas = document.getElementById('canvas3d');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const surfaceY = canvas.height * 0.28;
+            const bottomY = canvas.height * 0.88;
+            const groundH = bottomY - surfaceY;
+
+            // Sky / Atmosphere
+            ctx.fillStyle = '#0c0a09';
+            ctx.fillRect(0, 0, canvas.width, surfaceY);
+
+            // Soil Layers (Fibrik, Hemik, Saprik)
+            const hFibrik = groundH * 0.3;
+            const hHemik = groundH * 0.4;
+            const hSaprik = groundH * 0.3;
+
+            // 1. Fibrik (Surface Peat - Brownish)
+            ctx.fillStyle = '#451a03';
+            ctx.fillRect(40, surfaceY, canvas.width - 80, hFibrik);
+
+            // 2. Hemik (Middle Layer - Dark Brown)
+            ctx.fillStyle = '#291404';
+            ctx.fillRect(40, surfaceY + hFibrik, canvas.width - 80, hHemik);
+
+            // 3. Saprik (Decomposed Deep - Very Dark)
+            ctx.fillStyle = '#1c0e03';
+            ctx.fillRect(40, surfaceY + hFibrik + hHemik, canvas.width - 80, hSaprik);
+
+            // Groundwater Water Table (GWL)
+            // gwl is negative (e.g. -15 cm to -80 cm). Map 0 cm to surfaceY, -100 cm to bottomY
+            const waterLevelY = surfaceY + (Math.abs(gwl) / 100) * groundH;
+
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.4)';
+            ctx.fillRect(40, waterLevelY, canvas.width - 80, bottomY - waterLevelY);
+
+            // Water surface line
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(40, waterLevelY);
+            ctx.lineTo(canvas.width - 40, waterLevelY);
+            ctx.stroke();
+
+            // Layer Labels
+            ctx.fillStyle = '#a8a29e';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('Lapisan Fibrik (0-30 cm)', 50, surfaceY + 20);
+            ctx.fillText('Lapisan Hemik (30-70 cm)', 50, surfaceY + hFibrik + 20);
+            ctx.fillText('Lapisan Saprik (>70 cm)', 50, surfaceY + hFibrik + hHemik + 20);
+
+            // PP 57/2016 Danger threshold line (-40 cm)
+            const dangerY = surfaceY + (40 / 100) * groundH;
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(40, dangerY);
+            ctx.lineTo(canvas.width - 40, dangerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#f87171';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('AMBANG KRITIS PP 57/2016 (-40 cm)', canvas.width - 230, dangerY - 5);
+
+            // Draw IoT Sensor Probe Station
+            const probeX = canvas.width * 0.55;
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(probeX, surfaceY - 40);
+            ctx.lineTo(probeX, surfaceY + (probeDepth / 100) * groundH);
+            ctx.stroke();
+
+            // Solar panel / IoT box at top
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(probeX - 14, surfaceY - 55, 28, 16);
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(probeX, surfaceY + (probeDepth / 100) * groundH, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Probe Label
+            ctx.fillStyle = '#fef08a';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(`Probe ${probeDepth}cm: ${moisture}% Air | ${temp}°C`, probeX + 16, surfaceY + (probeDepth / 100) * groundH + 4);
+
+            if (mode === 'AR') {
+                ctx.fillStyle = 'rgba(217, 119, 6, 0.4)';
+                ctx.font = '11px sans-serif';
+                ctx.fillText('PROYEKSI AR: MONITORING SUMUR PANTAU GAMBUT MEMPAWAH (1:10)', 20, 30);
+            }
+
+            // Inset Mini Chart: Time-Series GWL
+            drawMiniChart();
+        }
+
+        function drawMiniChart() {
+            const chartX = 50;
+            const chartY = canvas.height * 0.68;
+            const chartW = 180;
+            const chartH = 65;
+
+            ctx.fillStyle = 'rgba(12, 10, 9, 0.85)';
+            ctx.fillRect(chartX, chartY, chartW, chartH);
+            ctx.strokeStyle = '#44403c';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(chartX, chartY, chartW, chartH);
+
+            ctx.fillStyle = '#d6d3d1';
+            ctx.font = '9px sans-serif';
+            ctx.fillText('Deret Waktu GWL (7 Hari Terakhir)', chartX + 8, chartY + 12);
+
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < historyGWL.length; i++) {
+                const px = chartX + 15 + i * 35;
+                const py = chartY + 20 + (Math.abs(historyGWL[i]) / 80) * (chartH - 25);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('btnModeAR').classList.toggle('active', m === 'AR');
+            document.getElementById('btnModeVR').classList.toggle('active', m === 'VR');
+            document.getElementById('statusBox').innerHTML = m === 'AR' 
+                ? '<strong>Mode AR Aktif:</strong> Memproyeksikan penampang tanah gambut dan sumur pantau IoT di atas meja pengujian.'
+                : '<strong>Mode VR Aktif:</strong> Memasuki lanskap hutan gambut Kubu Raya untuk menginspeksi kondisi hidrologis lapangan.';
+            draw();
+        }
+
+        function setProbeDepth(d) {
+            probeDepth = d;
+            document.getElementById('statusBox').innerHTML = `Sensor IoT diposisikan ke kedalaman <b>${d} cm</b> pada lapisan tanah gambut.`;
+            draw();
+        }
+
+        function stepDroughtDay() {
+            day += 5;
+            gwl -= 8; // Water drops by 8 cm per 5 days
+            moisture = Math.max(15, moisture - 11);
+            temp += 2.1;
+            historyGWL.push(gwl);
+            if (historyGWL.length > 5) historyGWL.shift();
+
+            updateMetrics();
+
+            if (gwl < -40) {
+                document.getElementById('statusBox').innerHTML = `🚨 <b>PERINGATAN BAHAYA KARHUTLA:</b> Muka air tanah (GWL: <b>${gwl} cm</b>) telah melintasi ambang batas kritis PP 57/2016 (-40 cm)! Gambut kering sangat rentan terbakar bawah tanah (smoldering fire)!`;
+            } else {
+                document.getElementById('statusBox').innerHTML = `<strong>Hari ke-${day} Kemarau:</strong> Muka air tanah turun ke <b>${gwl} cm</b>. Kelembaban gambut: <b>${moisture}%</b>.`;
+            }
+            draw();
+        }
+
+        function triggerRain() {
+            day = 1;
+            gwl = -15;
+            moisture = 78;
+            temp = 28;
+            historyGWL = [-15, -16, -15, -17, -18];
+            updateMetrics();
+            document.getElementById('statusBox').innerHTML = `🌧️ <b>Hujan Lebat Membasahi Gambut:</b> Muka air tanah pulih ke level normal (-15 cm). Resiko kebakaran kembali RENDAH.`;
+            draw();
+        }
+
+        function resetSensors() {
+            triggerRain();
+        }
+
+        function updateMetrics() {
+            document.getElementById('gwlVal').innerText = `${gwl} cm`;
+            document.getElementById('moistVal').innerText = `${moisture} %`;
+            const risk = (gwl < -40 || moisture < 40) ? "BAHAYA TINGGI" : ((gwl < -30) ? "WASPADA" : "RENDAH");
+            const riskEl = document.getElementById('fireRisk');
+            riskEl.innerText = risk;
+            riskEl.style.color = (risk === "BAHAYA TINGGI") ? "#ef4444" : ((risk === "WASPADA") ? "#f59e0b" : "#10b981");
+        }
+
+        function generateElNinoStress() {
+            const scenarios = [
+                "🔥 [GenAI Anomali: El Nino Ekstrem Kubu Raya]\nPrakiraan cuaca spasio-temporal memprediksi anomali suhu +3.5°C tanpa presipitasi selama 25 hari ke depan! Muka air tanah diprediksi anjlok hingga -65 cm. Sistem AI menyarankan pengaktifan sekat kanal (canal blocking) segera!",
+                "🔥 [GenAI Anomali: Deteksi Hotspot MODIS Satelit]\nSensor satelit FIRMS mendeteksi peningkatan radiasi termal di sekitar radius 3 km dari stasiun sensor. Lakukan korelasi antara penurunan kelembaban pori <30% dan indeks bahaya kebakaran gambut.",
+                "🔥 [GenAI Anomali: Kebakaran Bawah Permukaan (Smoldering)]\nSensor probe pada kedalaman 50 cm mendeteksi lonjakan temperatur drastis (48°C) tanpa ada api terlihat di permukaan! Ini adalah indikator kebakaran bawah tanah. Segera kirim sinyal peringatan dini ke BPBD."
+            ];
+            const choice = scenarios[Math.floor(Math.random() * scenarios.length)];
+            document.getElementById('genaiOutput').innerText = choice;
+            document.getElementById('statusBox').innerHTML = `<strong>GenAI Memicu Skenario El Nino:</strong> Amati lonjakan resiko kebakaran dan formulasikan tindakan mitigasi hidrologis.`;
+        }
+
+        resizeCanvas();
+    </script>
+</body>
+</html>
